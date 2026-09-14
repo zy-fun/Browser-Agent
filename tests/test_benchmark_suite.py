@@ -2,6 +2,7 @@ import json
 
 from agent.loop import EpisodeResult, ExecutionStep
 from agent.parser import AgentDecision
+from agent.planner import Plan, PlanState, PlanStep
 from benchmark.suite import SuiteCase, build_cases, run_suite, write_outputs
 from browser.actions import ActionType, BrowserAction
 from browser.observation import Observation
@@ -14,12 +15,16 @@ OBSERVATION = Observation(
 )
 
 
-def successful_result(task: str) -> EpisodeResult:
+def successful_result(task: str, *, with_plan: bool = False) -> EpisodeResult:
     decision = AgentDecision(
         reason="Click Submit",
         action=BrowserAction(ActionType.CLICK, element_id="a1"),
     )
     step = ExecutionStep(1, decision, OBSERVATION.url, reward=1.0)
+    plan_state = None
+    if with_plan:
+        plan = Plan("Submit the form", (PlanStep(1, "Click Submit"),))
+        plan_state = PlanState(plan, (1,), None)
     return EpisodeResult(
         task=task,
         observation=OBSERVATION,
@@ -30,6 +35,7 @@ def successful_result(task: str) -> EpisodeResult:
         input_tokens=10,
         output_tokens=5,
         total_tokens=15,
+        plan_state=plan_state,
     )
 
 
@@ -61,7 +67,7 @@ def test_write_outputs_preserves_metrics_and_trajectory(tmp_path) -> None:
     case = SuiteCase("click-test", 7)
     records = run_suite(
         (case,),
-        lambda _: successful_result("Click Submit"),
+        lambda _: successful_result("Click Submit", with_plan=True),
         provider="deepseek",
         model="test-model",
         input_cost_per_million=1.0,
@@ -74,6 +80,7 @@ def test_write_outputs_preserves_metrics_and_trajectory(tmp_path) -> None:
 
     assert summary.success_rate == 1.0
     assert episode["trajectory"][0]["action"] == {"type": "click", "element_id": "a1"}
+    assert episode["plan_state"]["steps"][0]["status"] == "completed"
     assert saved_summary["total_tokens"] == 15
     assert saved_summary["estimated_cost_usd"] == 0.00002
     assert (tmp_path / "episodes.csv").is_file()

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from agent.agent import ReActAgent
 from agent.loop import run_episode
+from agent.planner import TaskPlanner
 from benchmark.suite import (
     DEFAULT_M2_TASKS,
     EpisodeRecord,
@@ -54,6 +55,8 @@ def main() -> None:
     parser.add_argument("--llm-retry-delay", type=float, default=1.0)
     parser.add_argument("--max-steps", type=int, default=30)
     parser.add_argument("--max-stalled-repeats", type=int, default=3)
+    parser.add_argument("--planning", action="store_true")
+    parser.add_argument("--plan-review-interval", type=int, default=2)
     parser.add_argument("--input-cost-per-million", type=float)
     parser.add_argument("--output-cost-per-million", type=float)
     parser.add_argument("--output-dir", type=Path)
@@ -80,6 +83,7 @@ def main() -> None:
         llm_retries=args.llm_retries,
         llm_retry_delay=args.llm_retry_delay,
     )
+    planner = TaskPlanner(llm) if args.planning else None
     provider = args.provider or os.environ.get("LLM_PROVIDER", LLMProvider.OPENAI.value)
     model = str(getattr(llm, "model", args.model or "unknown"))
 
@@ -91,6 +95,8 @@ def main() -> None:
                 seed=case.seed,
                 max_steps=args.max_steps,
                 max_stalled_repeats=args.max_stalled_repeats,
+                planner=planner,
+                plan_review_interval=args.plan_review_interval,
             )
 
     records = run_suite(
@@ -118,6 +124,8 @@ def main() -> None:
             "llm_retries": args.llm_retries,
             "llm_retry_delay": args.llm_retry_delay,
             "headless": args.headless,
+            "planning": args.planning,
+            "plan_review_interval": args.plan_review_interval,
             "input_cost_per_million": args.input_cost_per_million,
             "output_cost_per_million": args.output_cost_per_million,
         },

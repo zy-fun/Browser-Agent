@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from agent.agent import AgentDecisionError, ReActAgent
 from agent.parser import AgentDecision
+from agent.planner import PlanError, PlanState, TaskPlanner
 from browser.actions import ActionType
 from browser.environment import BrowserEnvironment
 from browser.observation import Observation
@@ -39,6 +40,8 @@ class EpisodeResult:
     input_tokens: int
     output_tokens: int
     total_tokens: int
+    plan_state: PlanState | None = None
+    planner_warnings: tuple[str, ...] = ()
 
 
 StepCallback = Callable[[ExecutionStep, Observation], None]
@@ -52,6 +55,8 @@ def run_episode(
     seed: int | None = None,
     max_steps: int = 30,
     max_stalled_repeats: int = 3,
+    planner: TaskPlanner | None = None,
+    plan_review_interval: int = 2,
     on_step: StepCallback | None = None,
 ) -> EpisodeResult:
     """Run one bounded episode and preserve enough state for benchmark reporting."""
@@ -59,10 +64,15 @@ def run_episode(
         raise ValueError("max_steps must be positive")
     if max_stalled_repeats < 0:
         raise ValueError("max_stalled_repeats cannot be negative")
+    if plan_review_interval <= 0:
+        raise ValueError("plan_review_interval must be positive")
 
     initial_input_tokens = agent.usage.input_tokens
     initial_output_tokens = agent.usage.output_tokens
     initial_total_tokens = agent.usage.total_tokens
+    initial_planner_input = planner.usage.input_tokens if planner else 0
+    initial_planner_output = planner.usage.output_tokens if planner else 0
+    initial_planner_total = planner.usage.total_tokens if planner else 0
     observation = env.reset(seed=seed)
     effective_task = (task or observation.goal).strip()
     if not effective_task:
@@ -71,13 +81,28 @@ def run_episode(
     steps: list[ExecutionStep] = []
     total_reward = 0.0
     stop_reason = "max_steps"
+    plan_state = None
+    planner_warnings: list[str] = []
     stalled_action = None
     stalled_repeats = 0
 
+    if planner:
+        try:
+            plan_state = planner.create_plan(effective_task, observation)
+        except PlanError as exc:
+            stop_reason = f"planner_error: {exc}"
+
     for number in range(1, max_steps + 1):
+        if stop_reason.startswith("planner_error"):
+            break
         history = tuple(step.history_line() for step in steps)
         try:
-            decision = agent.step(effective_task, observation, history)
+            decision = agent.step(
+                effective_task,
+                observation,
+                history,
+                plan_state.to_text() if plan_state else "",
+            )
         except AgentDecisionError as exc:
             stop_reason = f"agent_error: {exc}"
             break
@@ -120,6 +145,9 @@ def run_episode(
             on_step(step, observation)
         if result.done:
             stop_reason = "environment_done"
+            if planner and plan_state and total_reward > 0:
+                completed = tuple(step.step_id for step in plan_state.plan.steps)
+                plan_state = PlanState(plan_state.plan, completed, None)
             break
         no_progress = result.reward <= 0 and _page_fingerprint(observation) == previous_state
         if no_progress and decision.action == stalled_action:
@@ -133,6 +161,15 @@ def run_episode(
         if max_stalled_repeats and stalled_repeats >= max_stalled_repeats:
             stop_reason = "stalled_repeated_action"
             break
+        if planner and plan_state and number % plan_review_interval == 0:
+            try:
+                plan_state = planner.update_plan(
+                    plan_state,
+                    observation,
+                    tuple(item.history_line() for item in steps),
+                )
+            except PlanError as exc:
+                planner_warnings.append(str(exc))
 
     return EpisodeResult(
         task=effective_task,
@@ -141,9 +178,14 @@ def run_episode(
         total_reward=total_reward,
         success=stop_reason == "environment_done" and total_reward > 0,
         stop_reason=stop_reason,
-        input_tokens=agent.usage.input_tokens - initial_input_tokens,
-        output_tokens=agent.usage.output_tokens - initial_output_tokens,
-        total_tokens=agent.usage.total_tokens - initial_total_tokens,
+        input_tokens=(agent.usage.input_tokens - initial_input_tokens)
+        + ((planner.usage.input_tokens - initial_planner_input) if planner else 0),
+        output_tokens=(agent.usage.output_tokens - initial_output_tokens)
+        + ((planner.usage.output_tokens - initial_planner_output) if planner else 0),
+        total_tokens=(agent.usage.total_tokens - initial_total_tokens)
+        + ((planner.usage.total_tokens - initial_planner_total) if planner else 0),
+        plan_state=plan_state,
+        planner_warnings=tuple(planner_warnings),
     )
 
 

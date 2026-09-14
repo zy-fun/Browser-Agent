@@ -227,6 +227,10 @@ Agent 可以自主连续执行浏览器动作直至完成任务。
 
 ### Milestone 3：多步骤任务与显式 Planning
 
+状态：已完成（2026-09-14）。Planner可以创建并更新类型化计划状态，在选定的多步
+MiniWoB 验收矩阵上达到 `6/6`，详见
+[`benchmark/M3_BASELINE.md`](benchmark/M3_BASELINE.md)。
+
 目标：提高较长任务中的目标保持能力。
 
 实现：

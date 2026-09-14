@@ -7,6 +7,7 @@ import time
 
 from agent.agent import ReActAgent
 from agent.loop import ExecutionStep, run_episode
+from agent.planner import TaskPlanner
 from browser.environment import BrowserEnvironment
 from browser.observation import Observation
 from configs.environment import load_project_env
@@ -46,6 +47,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int)
     parser.add_argument("--max-steps", type=int, default=30)
     parser.add_argument("--max-stalled-repeats", type=int, default=3)
+    parser.add_argument("--planning", action="store_true")
+    parser.add_argument("--plan-review-interval", type=int, default=2)
     parser.add_argument("--step-delay", type=float, default=0.0)
     parser.add_argument("--pause-on-finish", action="store_true")
     parser.add_argument("--headless", action=argparse.BooleanOptionalAction, default=True)
@@ -61,6 +64,7 @@ def main() -> None:
         llm_retries=args.llm_retries,
         llm_retry_delay=args.llm_retry_delay,
     )
+    planner = TaskPlanner(llm) if args.planning else None
     with BrowserEnvironment.miniwob(args.task, headless=args.headless) as env:
         result = run_episode(
             env,
@@ -69,6 +73,8 @@ def main() -> None:
             seed=args.seed,
             max_steps=args.max_steps,
             max_stalled_repeats=args.max_stalled_repeats,
+            planner=planner,
+            plan_review_interval=args.plan_review_interval,
             on_step=_show_step(args.step_delay),
         )
         print(

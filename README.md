@@ -28,7 +28,16 @@ M2（LLM 驱动的 ReAct 闭环）已经完成：
 DeepSeek 基线在 6 个代表性 MiniWoB 任务、每个 5 个 seed 上达到 `30/30`；详细配置与
 逐任务指标见 [M2_BASELINE.md](benchmark/M2_BASELINE.md)。
 
-下一阶段为 M3 显式 Planner。
+M3（轻量显式 Planner）已经完成：
+
+- 严格 JSON 的 `Plan`、`PlanStep` 与 `PlanState`
+- 初始高层计划生成与 `completed/current/pending` 进度维护
+- Planner只指导目标层，现有 ReAct Agent继续负责单个浏览器动作
+- 可配置计划复核间隔，非致命更新失败保留旧计划继续执行
+- 计划状态、warning 与 Planner token 纳入 benchmark 轨迹
+
+规划模式在选定的多步任务上达到 `6/6`，最长成功轨迹为 5 步。结果及与 Direct ReAct
+的对照见 [M3_BASELINE.md](benchmark/M3_BASELINE.md)。下一阶段为 M4 WebArena。
 
 ## 环境准备
 
@@ -148,6 +157,16 @@ python -m benchmark.run_miniwob_suite `
 任务失败默认会继续测试剩余 case；使用 `--fail-fast` 可在首次失败时停止，使用
 `--fail-on-task-failure` 可令存在失败时返回非零退出码。批量测试会产生多次 API 调用，
 建议先从单个 seed 和少量任务开始。
+
+使用 `--planning` 可启用 M3 高层计划与进度更新，同时保持原有低层动作接口不变：
+
+```powershell
+python -m benchmark.run_miniwob_suite `
+  --tasks login-user click-checkboxes `
+  --seeds 0 `
+  --planning `
+  --headless
+```
 
 默认情况下，供应商请求或空响应会额外重试 1 次，并以 1 秒为初始退避时间；连续 3 次
 执行相同动作且页面没有变化时，episode 会以 `stalled_repeated_action` 停止，避免无效

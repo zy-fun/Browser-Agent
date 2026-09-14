@@ -46,6 +46,8 @@ class EpisodeRecord:
     estimated_cost_usd: float | None
     elapsed_seconds: float
     error: str = ""
+    plan_state: dict[str, Any] | None = None
+    planner_warnings: tuple[str, ...] = ()
     trajectory: tuple[dict[str, Any], ...] = ()
 
     @classmethod
@@ -98,6 +100,8 @@ class EpisodeRecord:
                 output_cost_per_million,
             ),
             elapsed_seconds=elapsed_seconds,
+            plan_state=_serialize_plan_state(result.plan_state),
+            planner_warnings=result.planner_warnings,
             trajectory=tuple(trajectory),
         )
 
@@ -168,6 +172,31 @@ class SuiteSummary:
 
 EpisodeRunner = Callable[[SuiteCase], EpisodeResult]
 RecordCallback = Callable[[EpisodeRecord], None]
+
+
+def _serialize_plan_state(state) -> dict[str, Any] | None:
+    if state is None:
+        return None
+    completed = set(state.completed_step_ids)
+    return {
+        "goal": state.plan.goal,
+        "completed_step_ids": list(state.completed_step_ids),
+        "current_step_id": state.current_step_id,
+        "steps": [
+            {
+                "id": step.step_id,
+                "description": step.description,
+                "status": (
+                    "completed"
+                    if step.step_id in completed
+                    else "current"
+                    if step.step_id == state.current_step_id
+                    else "pending"
+                ),
+            }
+            for step in state.plan.steps
+        ],
+    }
 
 
 def _estimate_cost(

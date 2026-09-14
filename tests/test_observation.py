@@ -15,6 +15,7 @@ def test_build_observation_filters_and_formats_elements() -> None:
                     "browsergym_id": "a11",
                     "properties": [
                         {"name": "checked", "value": {"value": "true"}},
+                        {"name": "readonly", "value": {"value": True}},
                         {"name": "focusable", "value": {"value": True}},
                     ],
                 },
@@ -51,7 +52,9 @@ def test_build_observation_filters_and_formats_elements() -> None:
     assert [element.element_id for element in observation.elements] == ["a11", "a12", "a13"]
     assert observation.visible_text == ("Products",)
     assert "[a12] textbox 'Search'" in observation.to_text()
-    assert "[a11] checkbox 'Include archived' checked=true" in observation.to_text()
+    assert (
+        "[a11] checkbox 'Include archived' checked=true readonly=true" in observation.to_text()
+    )
 
 
 def test_control_state_changes_observation_identity() -> None:
@@ -99,3 +102,16 @@ def test_control_state_changes_observation_identity() -> None:
     assert unchecked_observation.elements[0].states == ("checked=false",)
     assert checked_observation.elements[0].states == ("checked=true",)
     assert unchecked_observation != checked_observation
+
+
+def test_action_error_is_compacted_to_first_line() -> None:
+    raw = {
+        "goal": "Submit",
+        "url": "https://example.test",
+        "axtree_object": {"nodes": []},
+        "last_action_error": "TimeoutError: not editable\nCall log:\nvery long detail",
+    }
+
+    observation = build_observation(raw)
+
+    assert observation.last_action_error == "TimeoutError: not editable"

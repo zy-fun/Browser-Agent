@@ -53,6 +53,7 @@ class ReActAgent:
         task: str,
         observation: Observation,
         history: tuple[str, ...],
+        plan: str = "",
     ) -> AgentDecision:
         messages = [
             {"role": "system", "content": REACT_SYSTEM_PROMPT},
@@ -63,6 +64,7 @@ class ReActAgent:
                     observation,
                     history,
                     history_limit=self.history_limit,
+                    plan=plan,
                 ),
             },
         ]

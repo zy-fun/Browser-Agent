@@ -31,6 +31,7 @@ INTERACTIVE_STATE_PROPERTIES = (
     "expanded",
     "pressed",
     "disabled",
+    "readonly",
 )
 
 
@@ -151,11 +152,13 @@ def build_observation(raw: Mapping[str, Any]) -> Observation:
             if name not in visible_text:
                 visible_text.append(name)
 
+    raw_error = str(raw.get("last_action_error", "")).strip()
+    error_summary = raw_error.splitlines()[0][:500] if raw_error else ""
     return Observation(
         goal=str(raw.get("goal", "")),
         url=url,
         title=title,
         elements=tuple(elements),
         visible_text=tuple(visible_text[:50]),
-        last_action_error=str(raw.get("last_action_error", "")),
+        last_action_error=error_summary,
     )
