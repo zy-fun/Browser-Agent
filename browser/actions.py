@@ -33,6 +33,14 @@ class BrowserAction:
     message: str | None = None
 
     def __post_init__(self) -> None:
+        fields = {
+            "element_id": self.element_id,
+            "text": self.text,
+            "option": self.option,
+            "direction": self.direction,
+            "url": self.url,
+            "message": self.message,
+        }
         required: dict[ActionType, tuple[str, ...]] = {
             ActionType.CLICK: ("element_id",),
             ActionType.TYPE: ("element_id", "text"),
@@ -41,9 +49,18 @@ class BrowserAction:
             ActionType.NAVIGATE: ("url",),
             ActionType.FINISH: ("message",),
         }
+        allowed = set(required.get(self.type, ()))
+        unexpected = {name for name, value in fields.items() if value is not None} - allowed
+        if unexpected:
+            raise ValueError(f"{self.type.value} received unexpected fields: {sorted(unexpected)}")
         for field_name in required.get(self.type, ()):
             if getattr(self, field_name) is None:
                 raise ValueError(f"{self.type.value} requires '{field_name}'")
+        for field_name, value in fields.items():
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"'{field_name}' must be a string")
+        if self.element_id == "":
+            raise ValueError("'element_id' cannot be empty")
 
         if self.direction is not None and self.direction not in {"up", "down"}:
             raise ValueError("scroll direction must be 'up' or 'down'")

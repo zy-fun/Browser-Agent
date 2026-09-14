@@ -48,6 +48,7 @@ class InteractiveElement:
 
 @dataclass(frozen=True, slots=True)
 class Observation:
+    goal: str
     url: str
     title: str
     elements: tuple[InteractiveElement, ...]
@@ -111,6 +112,7 @@ def build_observation(raw: Mapping[str, Any]) -> Observation:
                 visible_text.append(name)
 
     return Observation(
+        goal=str(raw.get("goal", "")),
         url=url,
         title=title,
         elements=tuple(elements),

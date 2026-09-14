@@ -33,3 +33,8 @@ def test_missing_required_field_is_rejected() -> None:
 def test_invalid_navigation_url_is_rejected() -> None:
     with pytest.raises(ValueError, match="absolute HTTP"):
         BrowserAction(ActionType.NAVIGATE, url="javascript:alert(1)")
+
+
+def test_unexpected_fields_are_rejected() -> None:
+    with pytest.raises(ValueError, match="unexpected fields"):
+        BrowserAction(ActionType.CLICK, element_id="a1", text="hidden payload")

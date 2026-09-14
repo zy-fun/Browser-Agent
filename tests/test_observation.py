@@ -3,6 +3,7 @@ from browser.observation import build_observation
 
 def test_build_observation_filters_and_formats_elements() -> None:
     raw = {
+        "goal": "Find a product.",
         "url": "https://example.test/search",
         "open_pages_titles": ("Search",),
         "active_page_index": [0],
@@ -36,6 +37,7 @@ def test_build_observation_filters_and_formats_elements() -> None:
     observation = build_observation(raw)
 
     assert observation.title == "Search"
+    assert observation.goal == "Find a product."
     assert [element.element_id for element in observation.elements] == ["a12", "a13"]
     assert observation.visible_text == ("Products",)
     assert "[a12] textbox 'Search'" in observation.to_text()

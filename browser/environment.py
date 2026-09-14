@@ -38,6 +38,7 @@ class BrowserEnvironment:
 
     def __init__(self, env: GymEnvironment) -> None:
         self._env = env
+        self._observation: Observation | None = None
 
     @classmethod
     def miniwob(
@@ -55,17 +56,26 @@ class BrowserEnvironment:
 
     def reset(self, *, seed: int | None = None) -> Observation:
         raw, _info = self._env.reset(seed=seed)
-        return build_observation(raw)
+        self._observation = build_observation(raw)
+        return self._observation
 
     def step(self, action: BrowserAction) -> StepResult:
         raw, reward, terminated, truncated, info = self._env.step(action.to_browsergym())
+        self._observation = build_observation(raw)
         return StepResult(
-            observation=build_observation(raw),
+            observation=self._observation,
             reward=float(reward),
             terminated=bool(terminated),
             truncated=bool(truncated),
             info=info,
         )
+
+    @property
+    def current_url(self) -> str:
+        """Return the URL from the latest observation."""
+        if self._observation is None:
+            raise RuntimeError("Environment must be reset before reading the current URL")
+        return self._observation.url
 
     def close(self) -> None:
         self._env.close()

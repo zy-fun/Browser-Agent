@@ -4,6 +4,7 @@ from browser.actions import ActionType, BrowserAction
 from browser.environment import BrowserEnvironment
 
 RAW_OBSERVATION: dict[str, Any] = {
+    "goal": "Click the button.",
     "url": "https://example.test",
     "open_pages_urls": ("https://example.test",),
     "open_pages_titles": ("Example",),
@@ -38,6 +39,7 @@ def test_environment_translates_actions_and_results() -> None:
     result = env.step(BrowserAction(ActionType.CLICK, element_id="a1"))
 
     assert observation.url == "https://example.test"
+    assert env.current_url == "https://example.test"
     assert gym_env.action == "click('a1')"
     assert result.reward == 1.0
     assert result.done

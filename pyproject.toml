@@ -23,6 +23,7 @@ llm = ["openai>=1.75,<2"]
 
 [project.scripts]
 browser-agent-miniwob = "benchmark.run_miniwob:main"
+browser-agent-react = "benchmark.run_react:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["agent", "browser", "llm", "benchmark"]
@@ -37,4 +38,3 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
-
