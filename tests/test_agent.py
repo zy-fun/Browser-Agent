@@ -1,7 +1,7 @@
 from agent.agent import ReActAgent
 from agent.loop import run_episode
 from browser.environment import BrowserEnvironment
-from llm.client import LLMResponse
+from llm.client import LLMRequestError, LLMResponse
 
 
 def raw_observation(*, done: bool = False):
@@ -34,6 +34,19 @@ class FakeLLM:
         return LLMResponse(next(self.responses), input_tokens=10, output_tokens=5, total_tokens=15)
 
 
+class FlakyLLM:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def complete(self, messages):
+        self.calls += 1
+        if self.calls == 1:
+            raise LLMRequestError("temporary outage")
+        return LLMResponse(
+            '{"reason":"Click Submit","action":{"type":"click","element_id":"a1"}}'
+        )
+
+
 class FakeGymEnvironment:
     def __init__(self) -> None:
         self.actions: list[str] = []
@@ -59,6 +72,21 @@ def test_agent_retries_hallucinated_element_id() -> None:
     env = BrowserEnvironment(FakeGymEnvironment())
     observation = env.reset()
     decision = ReActAgent(llm).step(observation.goal, observation, ())
+
+    assert decision.action.element_id == "a1"
+    assert llm.calls == 2
+
+
+def test_agent_retries_transient_llm_failure() -> None:
+    llm = FlakyLLM()
+    env = BrowserEnvironment(FakeGymEnvironment())
+    observation = env.reset()
+
+    decision = ReActAgent(llm, llm_retries=1, llm_retry_delay=0).step(
+        observation.goal,
+        observation,
+        (),
+    )
 
     assert decision.action.element_id == "a1"
     assert llm.calls == 2
@@ -102,3 +130,29 @@ def test_episode_token_usage_is_not_cumulative() -> None:
 
     assert first.total_tokens == 15
     assert second.total_tokens == 15
+
+
+def test_react_loop_stops_repeated_action_without_page_progress() -> None:
+    llm = FakeLLM(
+        [
+            '{"reason":"Retry","action":{"type":"click","element_id":"a1"}}',
+            '{"reason":"Retry","action":{"type":"click","element_id":"a1"}}',
+            '{"reason":"Retry","action":{"type":"click","element_id":"a1"}}',
+        ]
+    )
+
+    class StalledGymEnvironment(FakeGymEnvironment):
+        def step(self, action: str):
+            self.actions.append(action)
+            return raw_observation(), 0.0, False, False, {}
+
+    result = run_episode(
+        BrowserEnvironment(StalledGymEnvironment()),
+        ReActAgent(llm),
+        max_steps=10,
+        max_stalled_repeats=3,
+    )
+
+    assert not result.success
+    assert result.stop_reason == "stalled_repeated_action"
+    assert len(result.steps) == 3

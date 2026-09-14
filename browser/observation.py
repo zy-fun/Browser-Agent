@@ -25,6 +25,14 @@ INTERACTIVE_ROLES = frozenset(
     }
 )
 
+INTERACTIVE_STATE_PROPERTIES = (
+    "checked",
+    "selected",
+    "expanded",
+    "pressed",
+    "disabled",
+)
+
 
 def _value(node: Mapping[str, Any], key: str) -> str:
     raw = node.get(key, "")
@@ -33,16 +41,40 @@ def _value(node: Mapping[str, Any], key: str) -> str:
     return str(raw or "").strip()
 
 
+def _interactive_states(node: Mapping[str, Any]) -> tuple[str, ...]:
+    raw_properties = node.get("properties", ())
+    if not isinstance(raw_properties, (list, tuple)):
+        return ()
+    values: dict[str, str] = {}
+    for prop in raw_properties:
+        if not isinstance(prop, Mapping):
+            continue
+        name = str(prop.get("name", ""))
+        if name not in INTERACTIVE_STATE_PROPERTIES:
+            continue
+        value = prop.get("value", "")
+        if isinstance(value, Mapping):
+            value = value.get("value", "")
+        if isinstance(value, bool) or value is not None and str(value):
+            values[name] = str(value).lower()
+    return tuple(
+        f"{name}={values[name]}" for name in INTERACTIVE_STATE_PROPERTIES if name in values
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class InteractiveElement:
     element_id: str
     role: str
     name: str = ""
     value: str = ""
+    states: tuple[str, ...] = ()
 
     def to_text(self) -> str:
         label = self.name.replace("\n", " ").strip()
-        suffix = f" value={self.value!r}" if self.value else ""
+        parts = [f"value={self.value!r}"] if self.value else []
+        parts.extend(self.states)
+        suffix = f" {' '.join(parts)}" if parts else ""
         return f"[{self.element_id}] {self.role} {label!r}{suffix}"
 
 
@@ -105,7 +137,15 @@ def build_observation(raw: Mapping[str, Any]) -> Observation:
         visible = not isinstance(properties, Mapping) or properties.get("visibility", 1) > 0
 
         if element_id and visible and element_id not in seen and role in INTERACTIVE_ROLES:
-            elements.append(InteractiveElement(element_id, role, name, value))
+            elements.append(
+                InteractiveElement(
+                    element_id,
+                    role,
+                    name,
+                    value,
+                    _interactive_states(node),
+                )
+            )
             seen.add(element_id)
         elif role in {"statictext", "heading"} and name and len(name) <= 500:
             if name not in visible_text:

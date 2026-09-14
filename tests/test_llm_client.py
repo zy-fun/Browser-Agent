@@ -1,4 +1,4 @@
-from llm.client import OpenAIResponsesClient
+from llm.openai_client import OpenAIResponsesClient
 
 
 class Usage:

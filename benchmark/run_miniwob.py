@@ -7,6 +7,7 @@ import argparse
 from browser.actions import ActionType, BrowserAction
 from browser.environment import BrowserEnvironment
 from browser.observation import Observation
+from configs.environment import load_project_env
 
 
 def choose_click_target(observation: Observation) -> str:
@@ -28,6 +29,7 @@ def run(task_name: str, *, headless: bool, seed: int | None) -> float:
 
 
 def main() -> None:
+    load_project_env()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task", default="click-test")
     parser.add_argument("--seed", type=int)

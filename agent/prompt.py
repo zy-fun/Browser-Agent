@@ -9,6 +9,7 @@ from browser.observation import Observation
 REACT_SYSTEM_PROMPT = """You are a text-based browser agent operating BrowserGym.
 Choose exactly one action that makes concrete progress toward the user's task.
 Use only element identifiers shown in the current observation. Never invent an identifier.
+Respect control states such as checked, selected, expanded, pressed, and disabled.
 Return exactly one JSON object and no Markdown or surrounding prose.
 
 Schema:

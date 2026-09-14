@@ -201,6 +201,9 @@ Python 程序可以在 MiniWoB 中通过硬编码动作完成一个固定任务�
 
 ### Milestone 2：基础 ReAct Browser Agent
 
+状态：已完成（2026-09-14）。选定的 6 个 MiniWoB 任务 × 5 个 seed 基线为
+`30/30`，详见 [`benchmark/M2_BASELINE.md`](benchmark/M2_BASELINE.md)。
+
 目标：接入 LLM，实现自主浏览器操作闭环。
 
 实现：

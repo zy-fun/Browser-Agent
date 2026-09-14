@@ -11,6 +11,7 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
   "browsergym-miniwob==0.14.3",
   "gymnasium>=1.0,<2",
+  "python-dotenv>=1.0,<2",
 ]
 
 [project.optional-dependencies]
@@ -24,9 +25,10 @@ llm = ["openai>=1.75,<2"]
 [project.scripts]
 browser-agent-miniwob = "benchmark.run_miniwob:main"
 browser-agent-react = "benchmark.run_react:main"
+browser-agent-benchmark = "benchmark.run_miniwob_suite:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agent", "browser", "llm", "benchmark"]
+packages = ["agent", "browser", "llm", "benchmark", "configs"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
